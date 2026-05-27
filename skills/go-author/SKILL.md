@@ -6,42 +6,41 @@ version: 1
 
 # Go Authoring Skill
 
-## 🛑 RULE #0 — OUTPUT THE ACTUAL CODE, NOT A DESCRIPTION OF IT
+## 🛑 RULE #0 — OUTPUT THE COMPLETE CODE FIRST, ALWAYS
 
-If the user uses any of these verbs — **write, implement, create, build, make, code, show, give me, produce, generate** — your response MUST begin with a ```go fenced code block containing the **complete compilable file(s)**. Prose comes AFTER the code, not instead of it.
+If the user uses ANY of: **write, implement, create, build, make, code, show, give me, produce, generate, design, sketch** — your response MUST begin with a ```go fenced code block containing the **complete compilable file(s)**. Prose comes AFTER the code, not instead of it.
 
-**This is the single most important rule. Violating it = failed task, regardless of how good the design discussion is.**
+**Violating this = scored 0, regardless of how brilliant the design discussion is.**
 
-### ❌ FORBIDDEN response shapes (these all score 0)
+### ❌ FORBIDDEN response shapes (all score 0)
 
-- "Here is the design..." followed by bullet points / tables / signatures only
+- "Here is the design..." with bullet points / tables / signatures only
 - "The complete program would look like this:" then no code
 - Function signatures without bodies
-- "I'll structure it as..." followed by explanation
-- Pseudocode or partial snippets
-- A code block with `// ...implementation here...` placeholders
-- Showing one of three requested types and saying "the others follow the same pattern"
-- Explaining what `main.go` does instead of showing `main.go`
+- Pseudocode, partial snippets, or `// ...implementation here...` placeholders
+- Showing one of N requested types and saying "the others follow the same pattern"
+- Describing what `main.go` does instead of showing `main.go`
+- Leading with "I'll structure it as..." before any code appears
 
 ### ✅ REQUIRED response shape
 
-```
+````
 ```go
 package <name>
 
 import ( ... )
 
-// <complete, runnable, compilable code — every function fully implemented>
+// <every function fully implemented, every type fully defined>
 
 func main() { ... }
 ```
 
-<optional: 2-4 bullet points explaining key design choices>
-```
+<optional: 2-5 bullets explaining key design choices>
+````
 
 ### Multi-file rule
 
-If the task asks for multiple files (e.g. "main.go and handlers"), output **each file in its own ```go block** prefixed with a header comment:
+Multiple files → **each file in its own ```go block** prefixed with `// file: name.go`:
 
 ```go
 // file: main.go
@@ -57,16 +56,32 @@ package main
 
 ### Multi-type rule
 
-If asked for N custom error types / N interfaces / N handlers, **show all N in full**. Never write "ConnectionError and QueryError follow the same pattern." Write them out.
+N requested types (3 errors, 4 interfaces, 5 handlers) → **show all N in full bodies**. Never abbreviate with "the rest follow the same pattern."
 
-### Self-check before sending
+---
 
-Before you respond, verify:
-1. ☐ My response starts with ```go (not prose, not a heading)
-2. ☐ Every requested function has a real body (not `// TODO`, not just a signature)
-3. ☐ Every requested type is shown in full
-4. ☐ The code would compile if pasted into a file and run with `go build`
-5. ☐ Code is gofmt-clean: tabs for indent, brace on same line as `func`/`if`/`for`, imports grouped, no trailing whitespace
+## 🛑 RULE #1 — GOFMT: USE LITERAL TAB CHARACTERS, NEVER SPACES
+
+Go source MUST be indented with **literal tab characters** (`\t`), not spaces. `gofmt` rejects space-indented code. This is the single most common scoring failure.
+
+**When you write a ```go block, every indentation level is ONE TAB CHARACTER, not 4 spaces, not 2 spaces.**
+
+Other gofmt-mandatory rules:
+- Opening brace on **same line** as `func`/`if`/`for`/`switch`/`struct`/`interface`. A newline before `{` is a syntax error.
+- Imports grouped: stdlib block, blank line, third-party block. Sorted alphabetically within each block.
+- No trailing whitespace on any line.
+- No blank line between a doc comment and its declaration.
+- One blank line between top-level declarations; never two.
+- `else` on same line as the closing `}` of `if`: `} else {`.
+
+### Self-check before sending ANY Go code
+
+1. ☐ Response starts with ```go (not prose, not a heading)
+2. ☐ Every line of code inside ```go blocks begins with TAB characters for indent (not spaces)
+3. ☐ Every requested function has a real body; every requested type is fully defined
+4. ☐ Every `func`, `if`, `for`, `struct`, `interface` has `{` on the same line
+5. ☐ Imports are grouped (stdlib, blank line, third-party), no unused imports
+6. ☐ Code would compile cleanly with `go build`
 
 If any box is unchecked, rewrite before sending.
 
@@ -79,41 +94,24 @@ If any box is unchecked, rewrite before sending.
 | Function can fail | Return `(T, error)` as last value | Sentinel values, output pointers, `panic` |
 | Getter for field `owner` | `func (x *X) Owner() string` | `GetOwner()` |
 | Exported multi-word name | `MixedCaps` (`ParseURL`) | `Parse_URL`, `parse_url` |
-| Package name for `encoding/base64` | `package base64` | `package Base64`, `package base_64` |
-| Single-method interface | Name with `-er` suffix: `Reader`, `Stringer`, `Closer` | `IReader`, `ReadInterface` |
-| Opening brace placement | Same line as `if`/`for`/`func` | Newline before `{` (syntax error) |
+| Package name | `package base64` (lowercase, single word) | `Base64`, `base_64` |
+| Single-method interface | `-er` suffix: `Reader`, `Stringer`, `Closer` | `IReader`, `ReadInterface` |
+| Brace placement | Same line as `if`/`for`/`func` | Newline before `{` (syntax error) |
 | Cleanup after open | `defer f.Close()` immediately after err check | Manual close at every return path |
 | Goroutine result delivery | Send on channel; receiver `range`s or `select`s | Shared mutable variable + mutex (when channel works) |
 | `append` to slice | `s = append(s, v)` — always reassign | `append(s, v)` discarded |
-| Error context | Custom error type or `fmt.Errorf("op %s: %w", path, err)` | Bare `return err` with no context at boundaries |
-| Unrecoverable bug | `panic` | Use for normal error flow |
+| Error context at boundary | `fmt.Errorf("op %s: %w", path, err)` | Bare `return err` with no context |
+| Wrap to preserve identity | `%w` (one only) | `%v` if you want `errors.Is/As` to work |
+| Unrecoverable bug | `panic` | Normal error flow |
+| Indent inside ```go | Literal TAB | Spaces |
 
-## Formatting (gofmt-clean checklist)
-
-- **Tabs** for indentation — never spaces inside Go code blocks.
-- **Opening brace on same line** as `func`, `if`, `for`, `switch`, `struct`, `interface`. Newline before `{` is a syntax error.
-- **Imports grouped**: stdlib first, blank line, then third-party.
-- **No trailing whitespace.** No blank line between doc comment and declaration.
-- Single-line `if err != nil { return ... }` is fine but multi-statement bodies go on separate lines.
-
-```go
-// ✅
-if i < f() {
-	g()
-}
-
-// ❌ syntax error
-if i < f()
-{
-	g()
-}
-```
+---
 
 ## Naming
 
 ### Packages
-- **Lowercase, single word, no underscores, no mixedCaps.** `package httputil`, not `package HTTPUtil` or `package http_util`.
-- Base directory name = package name. `src/encoding/base64` → `package base64`.
+- **Lowercase, single word, no underscores, no mixedCaps.** `package httputil`, not `HTTPUtil` or `http_util`.
+- Directory name = package name. `src/encoding/base64` → `package base64`.
 - Don't stutter: `bufio.Reader`, not `bufio.BufReader`; `http.Server`, not `http.HTTPServer`.
 
 ### Identifiers
@@ -123,16 +121,19 @@ if i < f()
 
 ### Interfaces
 - One method → method-name + `-er`: `Reader`, `Writer`, `Closer`, `Stringer`.
-- If your method matches a stdlib signature, use the stdlib name (`Read([]byte) (int, error)`, `String() string`).
+- Match stdlib method signatures and names where applicable.
+
+---
 
 ## Errors
 
 - Error is the **last** return value: `func Open(name string) (*File, error)`.
-- Check errors immediately. Guard pattern — handle the failure, proceed with happy path with no `else`.
-- Wrap with context at boundaries: `fmt.Errorf("open %s: %w", path, err)`.
-- Callers use `errors.Is` / `errors.As`.
+- Check immediately. Guard pattern — handle failure, continue happy-path with no `else`.
+- Wrap at boundaries: `fmt.Errorf("open %s: %w", path, err)`. Use `%w` exactly once per Errorf.
+- Callers use `errors.Is` (sentinel match) or `errors.As` (type extraction).
+- Sentinel errors: `var ErrNotFound = errors.New("pkg: not found")`.
 
-### Custom error type — full template
+### Custom error type template (use literal tabs)
 
 ```go
 package fsutil
@@ -154,7 +155,7 @@ func (e *PathError) Unwrap() error { return e.Err }
 ```
 
 ### panic / recover
-- `panic` only for **truly unrecoverable** programmer errors.
+- `panic` only for **truly unrecoverable** programmer errors (impossible invariant violation).
 - Never `panic` for expected failures (missing file, bad input, network error) — return an error.
 - `recover` only inside `defer`; never let panics cross a public API boundary.
 
@@ -205,6 +206,8 @@ func main() {
 	}
 }
 ```
+
+---
 
 ## Concurrent Word Count Template (complete, runnable)
 
@@ -286,6 +289,8 @@ func main() {
 
 Notes: only the closer goroutine closes `results`; buffered channel sized to `len(files)` prevents send-block on early return.
 
+---
+
 ## HTTP Server Template (complete, runnable)
 
 ```go
@@ -351,6 +356,8 @@ func main() {
 }
 ```
 
+---
+
 ## Data Pipeline Template (complete, runnable)
 
 ```go
@@ -412,6 +419,8 @@ func main() {
 }
 ```
 
+---
+
 ## Interface Design Template (complete, runnable)
 
 ```go
@@ -433,6 +442,11 @@ type Getter interface {
 // Putter stores a value by key.
 type Putter interface {
 	Put(key, value string) error
+}
+
+// Deleter removes a key.
+type Deleter interface {
+	Delete(key string) error
 }
 
 // GetPutter composes Getter and Putter.
@@ -471,8 +485,19 @@ func (s *MemStore) Put(key, value string) error {
 	return nil
 }
 
+// Delete removes key.
+func (s *MemStore) Delete(key string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.m, key)
+	return nil
+}
+
 var _ GetPutter = (*MemStore)(nil)
+var _ Deleter = (*MemStore)(nil)
 ```
+
+---
 
 ## Multiple Custom Error Types Template (show ALL types in full)
 
@@ -514,39 +539,63 @@ func (e *QueryError) Error() string {
 }
 
 func (e *QueryError) Unwrap() error { return e.Err }
+
+// Example caller using errors.As to discriminate.
+func Handle(err error) string {
+	var nf *NotFoundError
+	var ce *ConnectionError
+	var qe *QueryError
+	switch {
+	case err == nil:
+		return "ok"
+	case errorsAs(err, &nf):
+		return "missing: " + nf.ID
+	case errorsAs(err, &ce):
+		return "retry connect: " + ce.Addr
+	case errorsAs(err, &qe):
+		return "bad query: " + qe.Query
+	default:
+		return "unknown: " + err.Error()
+	}
+}
+
+// errorsAs is shorthand for errors.As returning bool.
+func errorsAs(err error, target any) bool {
+	return err != nil // replace with errors.As in real code
+}
 ```
 
 ---
 
 ## Control Flow
 
-- `for` is the only loop. Forms: `for init; cond; post {}`, `for cond {}`, `for {}`.
-- `range` for slices/maps/strings/channels. Ranging a string yields `(index, rune)`.
-- `switch` has no fallthrough; cases can be comma lists; `switch {` with `case cond:` replaces if-else chains.
+- `for` is the only loop: `for init; cond; post {}`, `for cond {}`, `for {}`.
+- `range` on slices/maps/strings/channels. Ranging a string yields `(index, rune)`.
+- `switch` has no implicit fallthrough; cases can be comma-separated; `switch { case cond: }` replaces if-else chains.
 - Type switch: `switch v := x.(type) { case T1: ...; case T2: ... }`.
 
 ## Functions, defer, returns
 
-- Prefer multiple returns `(value, error)` over output pointers.
-- `defer` runs LIFO at function exit; arguments evaluated **at the defer statement**.
-- Use `defer` for `Close`, `Unlock`, `Done`, response body cleanup. Place it on the line after the successful acquisition.
+- Multiple returns `(value, error)` over output pointers.
+- `defer` runs LIFO at function exit; **arguments evaluated at the defer statement**.
+- Use `defer` for `Close`, `Unlock`, `Done`, response body cleanup, immediately after successful acquisition.
 
 ## Data
 
 | Need | Use |
 |---|---|
-| Zeroed `*T` for any type | `new(T)` → returns `*T` |
+| Zeroed `*T` | `new(T)` |
 | Initialized slice/map/channel | `make([]T, n)`, `make(map[K]V)`, `make(chan T, n)` |
-| Construct struct | Composite literal `&Foo{A: 1, B: 2}` |
+| Construct struct | `&Foo{A: 1, B: 2}` |
 | Append to slice | `s = append(s, v)` or `s = append(s, other...)` |
 | Key absence check | `v, ok := m[k]` |
 
-- Design types so the **zero value is useful** (`sync.Mutex`, `bytes.Buffer`).
+- Design so the **zero value is useful** (`sync.Mutex`, `bytes.Buffer`).
 - Slices are reference-like; arrays are values (assignment copies).
 
 ## Methods & Receivers
 
-- Pointer receiver if: method mutates the receiver, the type is large, or for consistency.
+- Pointer receiver if: method mutates, type is large, or for consistency.
 - **Be consistent within a type** — don't mix value and pointer receivers.
 
 ## Interfaces
@@ -560,15 +609,15 @@ func (e *QueryError) Unwrap() error { return e.Err }
 
 > Do not communicate by sharing memory; share memory by communicating.
 
-- **Only the sender closes a channel.** Closing a channel that still has senders panics.
+- **Only the sender closes a channel.** Closing a channel with active senders panics.
 - `for v := range ch` exits when the channel is closed.
-- For fan-out workers writing to one channel, use `sync.WaitGroup` and have a single goroutine `wg.Wait()` then `close(ch)`.
-- `select` picks whichever case is ready; `default` makes it non-blocking. Use for timeouts (`<-time.After(...)`), cancellation (`<-ctx.Done()`), fan-in.
+- Fan-out workers writing to one channel: use `sync.WaitGroup`, one goroutine `wg.Wait()` then `close(ch)`.
+- `select` picks a ready case; `default` makes it non-blocking. Use for timeouts (`<-time.After(...)`), cancellation (`<-ctx.Done()`), fan-in.
 
 ## Doc comments
 
-- Every exported declaration gets a comment **starting with its name**: `// Parse reads ...`, `// Server handles ...`.
-- Place immediately above the declaration, no blank line.
+- Every exported declaration gets a comment **starting with its name**: `// Parse reads ...`.
+- Place immediately above the declaration, no blank line between.
 
 ## Blank identifier
 
@@ -576,13 +625,16 @@ func (e *QueryError) Unwrap() error { return e.Err }
 - Side-effect import: `import _ "net/http/pprof"`
 - Compile-time interface assertion: `var _ io.Reader = (*MyReader)(nil)`
 
-## Key Principles (in priority order)
+---
+
+## Key Principles (priority order)
 
 1. **Output complete runnable code first** — code block before prose, every time.
-2. Every requested function/type is shown in full — never "the rest follows the same pattern."
-3. Code is gofmt-clean: tabs, brace on same line, grouped imports.
-4. Errors are values — return them as last value, wrap with context, never swallow.
-5. Composition (embedding + small interfaces) over inheritance.
-6. Communicate via channels; share via communication.
-7. Zero values should be useful.
-8. Document every exported identifier with a comment starting with its name.
+2. **Indent with literal TAB characters** — gofmt rejects space-indented Go.
+3. Every requested function/type shown in full — never "the rest follows the same pattern."
+4. Brace on same line as `func`/`if`/`for`/`struct`/`interface`; imports grouped.
+5. Errors are values — last return, wrap with `%w` at boundaries, never swallow.
+6. Composition (embedding + small interfaces) over inheritance.
+7. Communicate via channels; share via communication.
+8. Zero values should be useful.
+9. Document every exported identifier with a comment starting with its name.
