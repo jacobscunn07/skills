@@ -1,0 +1,9 @@
+id: interface-design
+prompt: |
+  Design Go interfaces for a key-value store. Start with small single-method
+  interfaces and compose them into a larger one using embedding. Implement
+  a concrete in-memory store backed by a map. The constructor should return
+  the composed interface type, not the concrete type. Name all interfaces
+  following Go conventions.
+weight: 1.3
+tags: [interfaces, embedding, naming, composition]

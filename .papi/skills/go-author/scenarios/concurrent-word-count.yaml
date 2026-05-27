@@ -1,0 +1,9 @@
+id: concurrent-word-count
+prompt: |
+  Write a Go program that accepts a []string of file paths, counts the words
+  in each file concurrently using one goroutine per file, and returns the
+  combined total word count along with any errors encountered.
+  Use channels to collect per-file results back to the coordinator.
+  Do not use a mutex or shared variable for accumulation.
+weight: 1.5
+tags: [goroutines, channels, concurrency, error-handling]
