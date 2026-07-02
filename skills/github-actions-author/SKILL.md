@@ -1,6 +1,6 @@
 ---
 name: github-actions-author
-description: Use when authoring, reviewing, or debugging GitHub Actions workflows (.github/workflows/*.yml) — including CI/CD pipelines for Node.js, Python, Go, Docker; matrix builds, caching (actions/cache, setup-node cache), reusable/composite workflows, OIDC to AWS/GCP, secrets/permissions hardening, concurrency, and release automation. Also use when choosing between actions (e.g. actions/checkout versions, setup-node vs setup-python) or fixing failing workflow runs.
+description: Use whenever the user asks to create, add, set up, write, review, debug, or fix a GitHub Actions workflow or `.github/workflows/*.yml` / `*.yaml` file — including CI pipelines (lint/test/build on push or PR) for Node.js (npm/pnpm/yarn), Python (pip/poetry/uv), Go, Rust, or Docker; matrix builds, dependency caching (setup-node/setup-python/setup-go cache, actions/cache), reusable/composite workflows, OIDC to AWS/GCP/Azure, secrets and permissions hardening, concurrency groups, release automation (PyPI, npm, GHCR, Docker Hub), and pinning actions to SHAs. Also use when choosing between actions or fixing a failing workflow run.
 version: 1
 ---
 
@@ -10,7 +10,7 @@ Author, review, and debug `.github/workflows/*.yml` files. Prefer concrete, mini
 
 ## Output Contract (read first)
 
-When the user asks you to create/write/add a workflow:
+When the user asks you to create/write/add/set-up a workflow:
 
 1. **Always emit the complete YAML file contents** in a fenced ```yaml block, with the intended path as a comment on the first line (e.g. `# .github/workflows/ci.yaml`). Do not just describe the approach.
 2. **Also write the file to disk** at `.github/workflows/<name>.yaml` using the Write tool when a repo is present.
@@ -128,6 +128,8 @@ jobs:
           cache: 'npm'
       - name: Install dependencies
         run: npm ci
+      - name: Lint
+        run: npm run lint --if-present
       - name: Run tests
         run: npm test
 ```
