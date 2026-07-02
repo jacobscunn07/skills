@@ -1,0 +1,22 @@
+id: node-ci
+prompt: |
+  Create a basic CI workflow for a Node.js library.
+
+  Write the workflow to .github/workflows/ci.yaml, preserving that path
+  structure under the current directory.
+
+  Requirements:
+  - The workflow name is "CI".
+  - Triggered on pull requests targeting the main branch.
+  - Runs on the latest Ubuntu runner.
+  - A CI run must not exceed 15 minutes.
+  - Steps, in order:
+    1. Check out the repository.
+    2. Set up Node.js 20 with npm caching enabled.
+    3. Install dependencies with `npm ci`.
+    4. Run the test suite with `npm test`.
+
+  The project is a Node library at the repository root and package-lock.json
+  is committed.
+weight: 1.0
+tags: [ci, node, workflow, yaml]

@@ -1,3 +1,4 @@
-**/runs
+.papi/**/runs
+.papi/db
 **/lock
 papi
