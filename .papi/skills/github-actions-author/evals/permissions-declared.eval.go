@@ -1,3 +1,20 @@
+// Eval: permissions-declared
+//
+// Enforces least-privilege scoping: every workflow must set a top-level
+// permissions: block, and any permissions block it declares (top-level or
+// per-job) must be non-empty. An explicit empty `{}` is rejected. A scalar
+// shorthand (read-all / write-all) counts as a non-empty declaration.
+//
+//	PASS:                        FAIL (missing top-level):   FAIL (empty block):
+//	  permissions:                 jobs:                        permissions: {}
+//	    contents: read               build:                     jobs:
+//	  jobs:                            runs-on: ubuntu-latest     build:
+//	    build:                         ...                          runs-on: ...
+//	      permissions:
+//	        contents: read
+//
+// Score: 1.0 all pass, 0.6 majority, 0.2 mostly failing, 0.5 nothing to check or
+// yq unavailable, 0.0 skill not invoked. See also no-write-all (bans write-all).
 package main
 
 import (

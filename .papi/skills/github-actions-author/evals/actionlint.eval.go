@@ -1,3 +1,18 @@
+// Eval: actionlint
+//
+// Lints every produced workflow with `actionlint`, catching problems a plain
+// YAML parse misses: bad expression syntax, unknown runner labels, invalid
+// event/permission keys, misused contexts, shellcheck issues in run: blocks.
+// Each workflow (from .github/workflows or ```yaml blocks) is written into a
+// temp .github/workflows/ tree and linted individually.
+//
+//	PASS:                                  FAIL (bad === in expression):
+//	  steps:                                 steps:
+//	    - run: echo hi                         - run: echo hi
+//	      if: ${{ github.ref == 'x' }}           if: ${{ github.ref === 'x' }}
+//
+// Score: 1.0 all pass, 0.6 majority, 0.2 mostly failing, 0.5 nothing to lint or
+// actionlint unavailable, 0.0 skill not invoked. Failures cite the first error.
 package main
 
 import (

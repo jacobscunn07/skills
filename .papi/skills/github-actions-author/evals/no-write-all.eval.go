@@ -1,3 +1,16 @@
+// Eval: no-write-all
+//
+// Bans the blanket `permissions: write-all` shorthand anywhere — top level or on
+// any job — since it grants the maximally broad token. Granular write scopes
+// inside a permissions map are intentionally allowed; only the shorthand fails.
+//
+//	PASS (granular):             PASS (read-all):        FAIL:
+//	  permissions:                 permissions: read-all   permissions: write-all
+//	    contents: write
+//	    packages: write
+//
+// Score: 1.0 all clean, 0.6 majority, 0.2 mostly failing, 0.5 nothing to check or
+// yq unavailable, 0.0 skill not invoked. Complements permissions-declared.
 package main
 
 import (

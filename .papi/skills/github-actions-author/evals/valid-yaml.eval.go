@@ -1,3 +1,19 @@
+// Eval: valid-yaml
+//
+// Checks that every GitHub Actions workflow the skill produces is syntactically
+// valid YAML. Workflows are collected from files under .github/workflows and
+// from fenced ```yaml blocks in the response, then each is parsed with `yq`.
+//
+//	PASS:                        FAIL (bad indentation / unclosed flow seq):
+//	  name: CI                     name: CI
+//	  on:                          on:
+//	    push:                        push:
+//	  jobs:                        jobs:
+//	    build:                       build:
+//	      runs-on: ubuntu-latest       runs-on: [unclosed
+//
+// Score: 1.0 all parse, 0.6 majority, 0.2 mostly invalid, 0.5 nothing to check
+// or no validator available, 0.0 skill not invoked.
 package main
 
 import (

@@ -1,3 +1,18 @@
+// Eval: pin-external-uses
+//
+// Supply-chain hardening: every EXTERNAL action ref (`uses:`) must be pinned to a
+// full 40-char commit SHA and carry a trailing `# version` comment (a mutable
+// @v4/@main tag can be re-pointed at malicious code; a SHA cannot). Local refs
+// (./ or ../) and docker:// refs are exempt — they don't pin to a commit SHA.
+//
+//	PASS:                                                     FAIL (tag):
+//	  - uses: actions/checkout@b4ffde6...(40 hex) # v4.2.2      - uses: actions/checkout@v4
+//	EXEMPT:                                                    FAIL (no comment):
+//	  - uses: ./.github/actions/build                            - uses: actions/checkout@b4ffde6...(40 hex)
+//	  - uses: docker://alpine:3.19
+//
+// Pure text parsing (comments aren't in yq's JSON output). Score: 1.0 all pinned,
+// 0.6 majority, 0.2 mostly failing, 0.5 nothing to check, 0.0 skill not invoked.
 package main
 
 import (
