@@ -1,0 +1,26 @@
+id: python-release
+prompt: |
+  Create a release workflow for a Python CLI tool.
+
+  Write the workflow to .github/workflows/release.yaml, preserving that path
+  structure under the current directory.
+
+  Requirements:
+  - The workflow name is "Release".
+  - Triggered when a tag matching "v*" is pushed.
+  - Runs on the latest Ubuntu runner.
+  - A release run must be able to take up to 30 minutes.
+  - The job needs elevated permissions so it can write release artifacts
+    (create a release and upload assets).
+  - Two concurrent release runs for the same tag must never happen, and a
+    release that is already in progress must NOT be cancelled mid-run (a
+    cancellation partway through publishing would be unsafe).
+  - Steps, in order:
+    1. Check out the repository.
+    2. Set up Python 3.12.
+    3. Install build dependencies and run `python -m build` to produce an
+       sdist and a wheel under dist/.
+    4. Create a GitHub release for the pushed tag and upload `dist/*` as
+       release assets.
+weight: 1.0
+tags: [release, python, workflow, permissions, concurrency, tags]
