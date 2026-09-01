@@ -1,0 +1,9 @@
+id: node-ci-matrix
+prompt: |
+  Set up continuous integration for a Node.js library on GitHub. It should run
+  the lint and test scripts on every pull request and on pushes to main, across
+  Node 20, 22 and 24 on both Ubuntu and macOS, and it should not reinstall
+  dependencies from scratch on every run. If one combination fails I still want
+  to see the results of the others. Write the workflow file into the repository
+  and show me its contents.
+tags: [matrix, caching, ci]

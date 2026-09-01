@@ -1,0 +1,7 @@
+id: not-github-actions
+prompt: |
+  I need a .gitlab-ci.yml for our GitLab project. It should have build, test and
+  deploy stages, cache the node_modules directory between stages, and only run
+  the deploy stage on the default branch. What should it look like?
+tags: [negative]
+shouldInvoke: false
