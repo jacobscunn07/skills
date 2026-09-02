@@ -1,7 +1,8 @@
 # Workflow Syntax
 
 Everything here assumes the output contract in SKILL.md: the file is written to
-`.github/workflows/<name>.yml` **and** emitted as a fenced ```yaml block.
+`.github/workflows/<name>.yml` **and** emitted as a fenced ```yaml block, and
+`.github/dependabot.yml` ships alongside it.
 
 ## Triggers
 
@@ -41,6 +42,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+defaults:
+  run:
+    shell: bash -euo pipefail {0}
+
 jobs:
   test:
     runs-on: ${{ matrix.os }}
@@ -52,6 +57,8 @@ jobs:
         node: [20, 22, 24]
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
           node-version: ${{ matrix.node }}
@@ -90,8 +97,8 @@ strategy:
 
 ## Caching
 
-Prefer the built-in cache of the `setup-*` action - it knows the lockfile and the cache
-paths already:
+Every install step needs a cache. Prefer the built-in cache of the `setup-*` action -
+it knows the lockfile and the cache paths already:
 
 | Ecosystem | Built-in |
 |---|---|
@@ -118,6 +125,10 @@ Reach for `actions/cache` only for something the setup action does not cover:
 - Include `${{ runner.os }}`: caches are not portable across runner images.
 - Caches are immutable once written and scoped per branch, with reads falling back to the
   default branch. A PR cannot poison main's cache, but it can read it.
+
+**When hardening an existing workflow**: if you see an install step without caching, add
+the `setup-*` action's `cache:` input as part of the fix. A hardening pass that leaves
+dependency installs uncached is incomplete.
 
 ## Jobs, dependencies, outputs
 
@@ -208,17 +219,14 @@ Without a `--health-cmd`, steps start racing the container's boot.
 
 ## Shell defaults
 
-```yaml
-defaults:
-  run:
-    shell: bash
-```
-
-`bash` on the runner means `bash -e` (not `-o pipefail`). For any pipeline whose first
-command can fail, set it explicitly:
+The runner's default `bash` is `bash -e`, not `-o pipefail`. **Every workflow with a
+multi-command `run:` step** needs one of:
 
 ```yaml
 defaults:
   run:
     shell: bash -euo pipefail {0}
 ```
+
+or per-step: `shell: bash -euo pipefail {0}`. Without `pipefail`, `npm ci && npm test`
+passes when the tests error out, and `curl ... | tar x` succeeds when curl 404s.

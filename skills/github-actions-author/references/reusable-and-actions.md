@@ -12,10 +12,14 @@
 Rule of thumb: if the thing you are factoring out includes `runs-on`, it is a reusable
 workflow. If it is a run of steps, it is a composite action.
 
-## Reusable workflow
+## Reusable workflow - ALWAYS emit a caller alongside
+
+When the user asks for a reusable workflow, you produce **two files**: the callee and at
+least one caller. A reusable workflow with no demonstrated invocation is untested
+scaffolding.
 
 ```yaml
-# .github/workflows/build.yml  (the reusable one)
+# .github/workflows/build.yml  (the reusable callee)
 name: Build
 
 on:
@@ -40,6 +44,12 @@ on:
 permissions:
   contents: read
 
+# NOTE: no `concurrency:` here - the caller sets it, so concurrent callers don't serialize.
+
+defaults:
+  run:
+    shell: bash -euo pipefail {0}
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -49,6 +59,8 @@ jobs:
       artifact-name: ${{ steps.pack.outputs.name }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
           node-version: ${{ inputs.node-version }}
@@ -61,7 +73,21 @@ jobs:
 ```
 
 ```yaml
-# .github/workflows/ci.yml  (the caller)
+# .github/workflows/ci.yml  (the caller - REQUIRED, always emit it)
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   build:
     uses: ./.github/workflows/build.yml          # same repo
@@ -91,6 +117,8 @@ Rules that bite:
   caller's own `strategy`.
 - `${{ inputs.x }}` in the callee, `with:` in the caller. `env` does **not** cross the
   boundary - anything the callee needs has to be an input.
+- **Concurrency lives in the caller, not the callee.** Set it in the callee and every
+  concurrent caller waits for every other caller.
 
 ## Composite action
 
@@ -145,7 +173,8 @@ Used as:
 
 Rules that bite:
 - `shell:` is mandatory on every `run` step. Omitting it is the single most common composite
-  action error, and the message is unhelpful.
+  action error, and the message is unhelpful. Prefer `shell: bash` with `set -euo pipefail`
+  as the first line of the script.
 - Inputs are referenced as `${{ inputs.name }}`, **not** `env.INPUT_NAME` (that form is for
   JS/Docker actions only).
 - Every input value is a string. `default: 'true'` and compare with `== 'true'`.

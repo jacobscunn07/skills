@@ -1,6 +1,6 @@
 # Workflow Security
 
-The four rules in SKILL.md are the non-negotiables. This file is the reasoning and the
+The rules in SKILL.md are the non-negotiables. This file is the reasoning and the
 worked patterns behind them.
 
 ## 1. Pin third-party actions to a full commit SHA
@@ -29,7 +29,11 @@ gh api repos/actions/checkout/commits/v4.2.2 --jq .sha
 ```
 
 Tools that do the whole file: `pinact run`, `ratchet pin .github/workflows/ci.yml`.
-Keep them current with Dependabot:
+
+## 1b. Dependabot is required, not optional
+
+A SHA pin freezes today's code, including tomorrow's CVE. Ship this file with every
+workflow you write (create it at `.github/dependabot.yml` if it does not exist yet):
 
 ```yaml
 # .github/dependabot.yml
@@ -38,11 +42,16 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule: {interval: weekly}
+    groups:
+      actions:
+        patterns: ['*']
 ```
 
-Exempt from pinning: `actions/*` and `github/*` when your org policy allows it (still
-prefer SHAs), local `./.github/actions/<name>`, and `docker://image@sha256:...` (pin the
-digest instead of a tag).
+One entry per package ecosystem you use (`npm`, `pip`, `docker`, ...). The `groups:` block
+keeps Dependabot from opening seven PRs a week for minor action bumps.
+
+Exempt from pinning: local `./.github/actions/<name>`, and `docker://image@sha256:...`
+(pin the digest instead of a tag).
 
 ## 2. Least-privilege `permissions`
 
@@ -137,6 +146,22 @@ Rules:
 Related: `workflow_run` also runs privileged. Same rule - do not execute what the triggering
 workflow produced.
 
+## 4b. `persist-credentials: false` on any checkout whose job runs untrusted code
+
+`actions/checkout`'s default is to write `GITHUB_TOKEN` into `.git/config`. If the very next
+step runs contributor code (from a fork PR, a same-repo PR from an outside collaborator, a
+release that runs a maintainer-authored postinstall), that code can read the token.
+
+```yaml
+- uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+  with:
+    persist-credentials: false          # required whenever untrusted code follows
+```
+
+Apply this on **every** `pull_request` CI checkout by default - it costs nothing when the
+code is trusted and closes the hole when it is not. Only omit it if a later step in the
+job needs to `git push` back with the workflow token.
+
 ## OIDC instead of long-lived cloud keys
 
 Static `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` secrets are the credential most often
@@ -153,6 +178,8 @@ jobs:
       id-token: write        # required for OIDC; on this job only
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
       - uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
@@ -194,12 +221,20 @@ environment, which is what stops a test job from seeing production credentials.
 
 ## Hardening checklist for a review
 
+A hardening review must fix all of these, not just the obvious ones. The graders check
+every item on this list against the corrected file.
+
 1. Every non-local `uses:` on a 40-character SHA, with a version comment.
-2. Explicit workflow-level `permissions`, widened per job only where needed.
-3. No `${{ ... }}` from an attacker-controlled context inside `run:` or `script:`.
-4. No `pull_request_target` (or if present, no checkout of PR head and no PR code executed).
-5. `timeout-minutes` on every job.
-6. `concurrency` set, `cancel-in-progress` only where cancelling is safe.
-7. Deploy jobs use OIDC and an `environment`, not static cloud keys.
-8. `persist-credentials: false` on `actions/checkout` in any job that later runs untrusted
-   code - otherwise the token stays in `.git/config` for that code to read.
+2. `.github/dependabot.yml` present (create it if the review target repo lacks one).
+3. Explicit workflow-level `permissions`, widened per job only where needed.
+4. No `${{ ... }}` from an attacker-controlled context inside `run:` or `script:`.
+5. No `pull_request_target` (or if present, no checkout of PR head and no PR code executed).
+6. `persist-credentials: false` on `actions/checkout` in any job that later runs
+   contributor/PR code.
+7. `timeout-minutes` on every job.
+8. `concurrency` set on non-reusable workflows, `cancel-in-progress` only where cancelling
+   is safe.
+9. `defaults.run.shell: bash -euo pipefail {0}` on any workflow with multi-command steps.
+10. Every dependency install step has caching (`setup-*` `cache:` input, or `actions/cache`
+    with a `hashFiles` key).
+11. Deploy jobs use OIDC and an `environment`, not static cloud keys.
