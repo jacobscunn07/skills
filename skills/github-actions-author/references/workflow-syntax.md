@@ -1,7 +1,7 @@
 # Workflow Syntax
 
-Everything here assumes the output contract in SKILL.md: the file is written to
-`.github/workflows/<name>.yml` **and** emitted as a fenced ```yaml block, and
+Everything here assumes the output contract in SKILL.md. Each file is written to
+`.github/workflows/<name>.yml` **and** shown in full as a fenced ```yaml block, and
 `.github/dependabot.yml` ships alongside it.
 
 ## Triggers
@@ -12,18 +12,13 @@ Everything here assumes the output contract in SKILL.md: the file is written to
 | Only when certain files change | `paths: ['src/**', '!**/*.md']` |
 | Release on a version tag | `push: {tags: ['v*.*.*']}` |
 | Manual run with parameters | `workflow_dispatch: {inputs: {...}}` |
-| Nightly | `schedule: [{cron: '0 3 * * *'}]` (UTC, no guaranteed start minute) |
+| Nightly | `schedule: [{cron: '0 3 * * *'}]` (UTC) |
 | Called by another workflow | `workflow_call:` (see `references/reusable-and-actions.md`) |
 | After another workflow finishes | `workflow_run: {workflows: [CI], types: [completed]}` |
 
-`push` and `pull_request` on the same workflow double-runs a PR from the same repo. Filter
-with `if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'`, or list
-only `pull_request` plus `push: {branches: [main]}` as above (that pair does not double-run:
-the push event only fires on merge).
-
-`pull_request` from a fork gets a **read-only** `GITHUB_TOKEN` and no secrets. That is the
-correct default. Do not reach for `pull_request_target` to work around it - read
-`references/security.md` first.
+Pairing `pull_request` with `push: {branches: [main]}` does not double-run, because the push event fires
+only on merge. A `pull_request` from a fork gets a read-only token and no secrets. Do not use
+`pull_request_target` to work around that. Read `references/security.md` instead.
 
 ## Full CI skeleton
 
@@ -48,6 +43,7 @@ defaults:
 
 jobs:
   test:
+    name: test (${{ matrix.os }}, node ${{ matrix.node }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
@@ -63,22 +59,26 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
           cache: npm
-      - run: npm ci
-      - run: npm test
+      - name: Install dependencies
+        run: npm ci
+      - name: Test
+        run: npm test
+      - uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        if: always()
+        with:
+          name: test-results-${{ matrix.os }}-node${{ matrix.node }}
+          path: reports/
+          if-no-files-found: ignore
+          retention-days: 7
 ```
-
-`cancel-in-progress: true` on `main` throws away pushes that were mid-deploy. Gate it on the
-event as above, or set it to `true` only for PR workflows.
 
 ## Matrix
 
-- `matrix.<key>: [a, b]` - full cross product of every key.
-- `include:` adds or extends combinations. An `include` entry whose keys match an existing
-  combination **adds fields to it**; one that does not match **appends a new job**.
-- `exclude:` removes combinations from the cross product; it is applied before `include`.
-- `fail-fast: true` (the default) kills every sibling on the first failure. Set `false` for
-  test matrices, where you want to see all failures at once.
-- `max-parallel: N` when the jobs contend over a shared external resource.
+- `matrix.<key>: [a, b]` produces the full cross product. Every key must be referenced in the job.
+- An `include:` entry that matches an existing combination extends it. One that matches nothing appends a new job.
+- `exclude:` is applied before `include`.
+- Use `fail-fast: false` for test matrices.
+- Use `max-parallel: N` when legs contend for a shared external resource.
 
 ```yaml
 strategy:
@@ -97,17 +97,14 @@ strategy:
 
 ## Caching
 
-Every install step needs a cache. Prefer the built-in cache of the `setup-*` action -
-it knows the lockfile and the cache paths already:
-
 | Ecosystem | Built-in |
 |---|---|
 | Node | `actions/setup-node` with `cache: npm` \| `yarn` \| `pnpm` |
 | Python | `actions/setup-python` with `cache: pip` \| `poetry` |
-| Go | `actions/setup-go` (module + build cache on by default) |
+| Go | `actions/setup-go` (on by default) |
 | Java | `actions/setup-java` with `cache: maven` \| `gradle` |
 
-Reach for `actions/cache` only for something the setup action does not cover:
+For anything else, use `actions/cache`:
 
 ```yaml
 - uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
@@ -118,17 +115,10 @@ Reach for `actions/cache` only for something the setup action does not cover:
       ${{ runner.os }}-mytool-
 ```
 
-- The `key` must contain a hash of whatever invalidates the cache. A key without
-  `hashFiles(...)` never invalidates and silently serves stale content forever.
-- `restore-keys` is the prefix fallback chain - it makes a cold key a partial hit rather
-  than a miss.
-- Include `${{ runner.os }}`: caches are not portable across runner images.
-- Caches are immutable once written and scoped per branch, with reads falling back to the
-  default branch. A PR cannot poison main's cache, but it can read it.
-
-**When hardening an existing workflow**: if you see an install step without caching, add
-the `setup-*` action's `cache:` input as part of the fix. A hardening pass that leaves
-dependency installs uncached is incomplete.
+- The key must include `hashFiles(...)` of whatever invalidates the cache, plus `runner.os`.
+- `restore-keys` turns a cold key into a partial hit.
+- Use lockfile-based installs (`npm ci`, `pnpm install --frozen-lockfile`, `pip install -r requirements.txt` with pinned versions).
+- If you are hardening a workflow and an install step has no cache, add one.
 
 ## Jobs, dependencies, outputs
 
@@ -140,7 +130,11 @@ jobs:
     outputs:
       version: ${{ steps.meta.outputs.version }}
     steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
       - id: meta
+        name: Read version
         run: echo "version=$(cat VERSION)" >> "$GITHUB_OUTPUT"
 
   publish:
@@ -149,12 +143,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - run: echo "publishing ${{ needs.build.outputs.version }}"
+      - name: Publish
+        run: echo "publishing $VERSION"
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
 ```
 
-- Step output: `echo "key=value" >> "$GITHUB_OUTPUT"`. The `set-output` command is removed.
-- Job output: declare it under `jobs.<id>.outputs`, read it as `needs.<id>.outputs.<name>`.
-- Multi-line output needs a delimiter:
+- Step output: `echo "key=value" >> "$GITHUB_OUTPUT"`. The `set-output` command has been removed.
+- Declare job outputs under `jobs.<id>.outputs` and read them as `needs.<id>.outputs.<name>`.
+- Multi-line output uses a delimiter:
   ```bash
   {
     echo "body<<EOF"
@@ -162,45 +159,29 @@ jobs:
     echo "EOF"
   } >> "$GITHUB_OUTPUT"
   ```
-- Env for later steps: `echo "KEY=value" >> "$GITHUB_ENV"`. Summary: `>> "$GITHUB_STEP_SUMMARY"`.
-- A matrix job used in `needs` gates on **all** its combinations finishing.
-- `if: always()` / `if: failure()` / `if: cancelled()` re-enable a job or step after a
-  failure upstream. `if: success()` is the implicit default.
+- Pass env to later steps with `>> "$GITHUB_ENV"`. Write a job summary with `>> "$GITHUB_STEP_SUMMARY"`.
+- `if: always()`, `failure()`, and `cancelled()` let a job or step run after an upstream failure.
 
 ## Contexts and expressions
 
 | Context | Available where | Note |
 |---|---|---|
-| `github.*` | everywhere | `github.ref`, `github.sha`, `github.event_name`, `github.repository` |
-| `env.*` | steps, most job keys | not in `jobs.<id>.if` at the job level |
-| `secrets.*` | `with:`/`env:`/`if:` on jobs and steps | never in `runs-on` |
+| `github.*` | everywhere | `ref`, `sha`, `event_name`, `repository` |
+| `env.*` | steps, most job keys | not in job-level `if` |
+| `secrets.*` | `with:`/`env:`/`if:` | never in `runs-on` |
 | `needs.*` | dependent jobs | outputs of prerequisites |
 | `matrix.*` | inside the job | |
-| `runner.*` | steps | `runner.os`, `runner.temp`, `runner.arch` |
-| `steps.<id>.*` | later steps of the same job | `outputs`, `outcome`, `conclusion` |
+| `runner.*` | steps | `os`, `temp`, `arch` |
+| `steps.<id>.*` | later steps | `outputs`, `outcome`, `conclusion` |
 
-`if:` is already an expression - write `if: github.event_name == 'push'`, not
-`if: ${{ ... }}`. Both work; the bare form is the convention.
-
-Useful functions: `contains()`, `startsWith()`, `endsWith()`, `format()`, `join()`,
-`hashFiles()`, `toJSON()`, `fromJSON()`. `fromJSON` is how a matrix gets built dynamically
-from a previous job's output: `matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}`.
+Write `if: github.event_name == 'push'` without the `${{ }}` wrapper. Useful functions: `contains()`, `startsWith()`,
+`format()`, `join()`, `hashFiles()`, `toJSON()`, `fromJSON()`. A dynamic matrix is
+`matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}`.
 
 ## Artifacts and services
 
-```yaml
-- uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
-  if: always()
-  with:
-    name: test-results-${{ matrix.os }}-${{ matrix.node }}
-    path: reports/
-    retention-days: 7
-```
-
-v4 artifacts are **immutable**: every matrix leg must upload under a distinct `name`, or the
-second upload fails. `if: always()` is what makes failure artifacts actually get collected.
-
-Service containers for integration tests:
+v4 artifacts are **immutable**, so every matrix leg needs a distinct `name`. Put `if: always()` on the upload so it
+collects failure reports.
 
 ```yaml
 services:
@@ -215,12 +196,9 @@ services:
       --health-retries 5
 ```
 
-Without a `--health-cmd`, steps start racing the container's boot.
+Without `--health-cmd`, steps race the container's boot.
 
 ## Shell defaults
-
-The runner's default `bash` is `bash -e`, not `-o pipefail`. **Every workflow with a
-multi-command `run:` step** needs one of:
 
 ```yaml
 defaults:
@@ -228,5 +206,4 @@ defaults:
     shell: bash -euo pipefail {0}
 ```
 
-or per-step: `shell: bash -euo pipefail {0}`. Without `pipefail`, `npm ci && npm test`
-passes when the tests error out, and `curl ... | tar x` succeeds when curl 404s.
+Without `pipefail`, `curl ... | tar x` succeeds even when curl gets a 404.
