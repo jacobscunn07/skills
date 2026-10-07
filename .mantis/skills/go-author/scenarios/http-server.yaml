@@ -1,0 +1,10 @@
+id: http-server
+prompt: |
+  Write an HTTP server in Go with three endpoints:
+  - GET /health returns {"status":"ok"} as JSON
+  - POST /echo reads the request body and writes it back
+  - GET /version returns the build version from an injected constant
+  The server must shut down gracefully on SIGINT or SIGTERM, waiting up to
+  5 seconds for in-flight requests to finish. Show main.go and any handlers.
+weight: 1.5
+tags: [http, goroutines, interfaces, error-handling, defer]

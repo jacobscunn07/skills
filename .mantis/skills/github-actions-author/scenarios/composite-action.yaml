@@ -1,0 +1,8 @@
+id: composite-action
+prompt: |
+  Several jobs in our repo repeat the same four steps to install our internal
+  toolchain, optionally restoring its cache, and later steps need to know which
+  version got installed. Package that up as something the jobs can call in a
+  single step, living inside this repository. Write the files and show me how a
+  job uses it.
+tags: [actions, composite, structure]

@@ -1,0 +1,10 @@
+id: file-processor
+prompt: |
+  Write a Go function ReadLines(path string) ([]string, error) that opens
+  a file, reads every line, and returns them as a slice. The file must
+  always be closed regardless of how the function exits. If opening or
+  reading fails, return an error that includes both the operation name and
+  the file path so callers can diagnose the problem without inspecting
+  the source.
+weight: 1.2
+tags: [defer, error-handling, file-io, error-context]

@@ -1,0 +1,9 @@
+id: oidc-deploy-aws
+prompt: |
+  We deploy our service to AWS from GitHub. Right now the access key and secret
+  are stored as repository secrets and I want to get rid of them entirely.
+  Set up the deploy so it runs when we push a version tag, authenticates to AWS
+  without any long-lived credentials, and cannot go out without someone
+  approving it first. Write the workflow file and explain what I need to
+  configure on the AWS side.
+tags: [oidc, security, permissions, deploy]
