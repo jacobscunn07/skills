@@ -2,3 +2,5 @@
 **/lock
 papi
 node_modules
+
+.mantis/db/**
