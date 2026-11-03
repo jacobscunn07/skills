@@ -1,0 +1,41 @@
+id: harden-insecure-workflow
+prompt: |
+  Take a look at .github/workflows/pr.yml in this repository. A contractor wrote
+  it and nobody has reviewed it since. Tell me what is wrong with it and fix the
+  file in place so it is safe to keep running on pull requests from forks.
+tags: [security, review, permissions, injection]
+fixtures:
+  .github/workflows/pr.yml: |
+    name: PR
+
+    on: pull_request_target
+
+    permissions: write-all
+
+    jobs:
+      build:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@master
+            with:
+              ref: ${{ github.event.pull_request.head.sha }}
+
+          - uses: actions/setup-node@v3
+            with:
+              node-version: 18
+
+          - run: npm install && npm test
+
+          - name: Comment on the PR
+            run: |
+              echo "Reviewing: ${{ github.event.pull_request.title }}"
+              echo "Branch: ${{ github.head_ref }}"
+              gh pr comment ${{ github.event.pull_request.number }} --body "build done"
+            env:
+              GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+          - name: Publish preview
+            run: ./scripts/deploy-preview.sh
+            env:
+              AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+              AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}

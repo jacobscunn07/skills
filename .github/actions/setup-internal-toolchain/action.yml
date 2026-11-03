@@ -1,0 +1,115 @@
+name: Setup Internal Toolchain
+description: Installs a pinned version of the internal toolchain (optionally restoring it from cache), puts it on PATH, and reports the version that was installed.
+
+inputs:
+  version:
+    description: Toolchain version to install, for example 1.4.2
+    required: true
+  base-url:
+    description: Base URL that serves <base-url>/<version>/toolchain-<os>-<arch>.tar.gz and a matching .sha256 file
+    required: false
+    default: https://artifacts.internal.example.com/toolchain
+  token:
+    description: Bearer token for the artifact server. Pass it from a secret, since composite actions cannot read secrets directly
+    required: false
+    default: ''
+  binary:
+    description: Name of the executable that the archive provides, used to confirm the installed version
+    required: false
+    default: toolchain
+  cache:
+    description: Whether to restore and save the installed toolchain with actions/cache ('true' or 'false')
+    required: false
+    default: 'true'
+
+outputs:
+  version:
+    description: Version reported by the installed binary
+    value: ${{ steps.verify.outputs.version }}
+  cache-hit:
+    description: Whether the toolchain was restored from cache. Empty when cache is 'false'
+    value: ${{ steps.cache.outputs.cache-hit }}
+  path:
+    description: Directory containing the installed toolchain, already added to PATH
+    value: ${{ steps.prepare.outputs.install-dir }}
+
+runs:
+  using: composite
+  steps:
+    - id: prepare
+      name: Validate inputs and choose install directory
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$ ]]; then
+          echo "::error::version '$VERSION' is not a semantic version"
+          exit 1
+        fi
+        case "$RUNNER_OS" in
+          Linux) os=linux ;;
+          macOS) os=darwin ;;
+          *) echo "::error::unsupported runner OS $RUNNER_OS"; exit 1 ;;
+        esac
+        case "$RUNNER_ARCH" in
+          X64) arch=amd64 ;;
+          ARM64) arch=arm64 ;;
+          *) echo "::error::unsupported runner arch $RUNNER_ARCH"; exit 1 ;;
+        esac
+        {
+          echo "install-dir=${RUNNER_TOOL_CACHE}/internal-toolchain/${VERSION}/${os}-${arch}"
+          echo "archive=toolchain-${os}-${arch}.tar.gz"
+        } >> "$GITHUB_OUTPUT"
+      env:
+        VERSION: ${{ inputs.version }}
+
+    - id: cache
+      name: Restore toolchain cache
+      if: inputs.cache == 'true'
+      uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+      with:
+        path: ${{ steps.prepare.outputs.install-dir }}
+        key: internal-toolchain-${{ runner.os }}-${{ runner.arch }}-${{ inputs.version }}
+
+    - id: install
+      name: Download and verify toolchain
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        url="${BASE_URL%/}/${VERSION}/${ARCHIVE}"
+        tmp="$(mktemp -d)"
+        trap 'rm -rf "$tmp"' EXIT
+        auth=()
+        if [[ -n "$TOKEN" ]]; then
+          auth=(-H "Authorization: Bearer ${TOKEN}")
+        fi
+        curl -fsSL --retry 3 "${auth[@]}" -o "$tmp/$ARCHIVE" "$url"
+        curl -fsSL --retry 3 "${auth[@]}" -o "$tmp/$ARCHIVE.sha256" "${url}.sha256"
+        expected="$(awk '{print $1}' "$tmp/$ARCHIVE.sha256")"
+        echo "${expected}  ${tmp}/${ARCHIVE}" | shasum -a 256 -c -
+        mkdir -p "$INSTALL_DIR"
+        tar -xzf "$tmp/$ARCHIVE" -C "$INSTALL_DIR"
+      env:
+        BASE_URL: ${{ inputs.base-url }}
+        VERSION: ${{ inputs.version }}
+        TOKEN: ${{ inputs.token }}
+        ARCHIVE: ${{ steps.prepare.outputs.archive }}
+        INSTALL_DIR: ${{ steps.prepare.outputs.install-dir }}
+
+    - id: verify
+      name: Add toolchain to PATH and record version
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "$INSTALL_DIR" >> "$GITHUB_PATH"
+        PATH="$INSTALL_DIR:$PATH"
+        installed="$("$BINARY" --version | head -n 1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?' | head -n 1)"
+        if [[ "$installed" != "$VERSION" ]]; then
+          echo "::error::requested $VERSION but $BINARY reports ${installed:-nothing}"
+          exit 1
+        fi
+        echo "version=${installed}" >> "$GITHUB_OUTPUT"
+      env:
+        INSTALL_DIR: ${{ steps.prepare.outputs.install-dir }}
+        BINARY: ${{ inputs.binary }}
+        VERSION: ${{ inputs.version }}

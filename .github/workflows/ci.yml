@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash -euo pipefail {0}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Set up internal toolchain
+        id: toolchain
+        uses: ./.github/actions/setup-internal-toolchain
+        with:
+          version: '1.4.2'
+          token: ${{ secrets.TOOLCHAIN_TOKEN }}
+      - name: Build with the installed toolchain
+        run: |
+          echo "toolchain $TOOLCHAIN_VERSION (cache hit: ${CACHE_HIT:-n/a})"
+          toolchain build
+        env:
+          TOOLCHAIN_VERSION: ${{ steps.toolchain.outputs.version }}
+          CACHE_HIT: ${{ steps.toolchain.outputs.cache-hit }}
+
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Set up internal toolchain without cache
+        id: toolchain
+        uses: ./.github/actions/setup-internal-toolchain
+        with:
+          version: '1.4.2'
+          token: ${{ secrets.TOOLCHAIN_TOKEN }}
+          cache: 'false'
+      - name: Lint
+        run: toolchain lint

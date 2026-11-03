@@ -1,0 +1,13 @@
+{
+  "name": "skills-monorepo",
+  "private": true,
+  "devDependencies": {
+    "@eslint/json": "^2.0.1",
+    "@eslint/markdown": "^8.0.3",
+    "@types/node": "^20.0.0",
+    "eslint": "^10.9.1",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0",
+    "yaml": "^2.5.0"
+  }
+}

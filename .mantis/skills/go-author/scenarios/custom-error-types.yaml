@@ -1,0 +1,10 @@
+id: custom-error-types
+prompt: |
+  Design a Go package for a database access layer. Define custom error
+  types for three failure modes: record not found, connection failure, and
+  query failure. Each error must carry the operation name and wrap the
+  underlying cause so callers can use errors.As and errors.Is to inspect
+  them. Show the type definitions, their Error() methods, and example
+  caller code that handles each case distinctly.
+weight: 1.3
+tags: [errors, interfaces, error-wrapping, error-context]

@@ -1,0 +1,8 @@
+id: reusable-workflow
+prompt: |
+  We have the same twelve build steps copy-pasted into four workflows, and they
+  have already drifted apart. Factor them into one shared definition that each
+  workflow calls, taking the Node version and the target environment as
+  parameters, passing the npm token through, and handing back the name of the
+  artifact it produced. Write the shared file and one workflow that calls it.
+tags: [reusable, workflow-call, structure]

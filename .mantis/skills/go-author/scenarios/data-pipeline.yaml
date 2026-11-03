@@ -1,0 +1,11 @@
+id: data-pipeline
+prompt: |
+  Write a Go program that processes a []Product slice where Product has
+  Name string, Price float64, and Category string fields.
+  Implement three functions:
+  1. FilterAbove(products []Product, threshold float64) []Product
+  2. GroupByCategory(products []Product) map[string][]Product
+  3. MostExpensive(products []Product) (Product, bool)
+  Use append correctly and avoid unnecessary allocations.
+weight: 1.2
+tags: [slices, maps, append, structs]
